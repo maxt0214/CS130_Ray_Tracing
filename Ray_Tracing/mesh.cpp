@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <limits>
+#include <iostream>
 
 // Consider a triangle to intersect a ray if the ray intersects the plane of the
 // triangle with barycentric weights in [-weight_tolerance, 1+weight_tolerance]
@@ -42,16 +43,37 @@ void Mesh::Read_Obj(const char* file)
 // Check for an intersection against the ray.  See the base class for details.
 Hit Mesh::Intersection(const Ray& ray, int part) const
 {
-    TODO;
-    return {};
+    Hit intersecPoint;
+    intersecPoint.object = nullptr;
+    
+    if(part >= 0) {
+        if(Intersect_Triangle(ray, part, intersecPoint.dist)) {
+            intersecPoint.object = this;
+            intersecPoint.part = part;
+            return intersecPoint;
+        }
+        return intersecPoint;
+    }
+    
+    for(int i = 0; i < triangles.size(); i ++) {
+        if(Intersect_Triangle(ray, i, intersecPoint.dist)) {
+            intersecPoint.object = this;
+            intersecPoint.part = i;
+            return intersecPoint;
+        }
+    }
+    return intersecPoint;
 }
 
 // Compute the normal direction for the triangle with index part.
 vec3 Mesh::Normal(const vec3& point, int part) const
 {
     assert(part>=0);
-    TODO;
-    return vec3();
+    
+    ivec3 triangle = triangles.at(part);
+    vec3 A = vertices.at(triangle[0]), B = vertices.at(triangle[1]), C = vertices.at(triangle[2]);
+    
+    return cross(B-A,C-A).normalized();
 }
 
 // This is a helper routine whose purpose is to simplify the implementation
@@ -68,7 +90,34 @@ vec3 Mesh::Normal(const vec3& point, int part) const
 // two triangles.
 bool Mesh::Intersect_Triangle(const Ray& ray, int tri, double& dist) const
 {
-    TODO;
+    ivec3 triangle = triangles.at(tri);
+    vec3 A = vertices.at(triangle[0]), B = vertices.at(triangle[1]), C = vertices.at(triangle[2]);
+    
+    //first intersect with the plane
+    vec3 planeNormal = cross(B-A,C-A).normalized();
+    if(dot(ray.direction,planeNormal) == 0) {
+        return false;
+    }
+    dist = - dot(ray.endpoint-A,planeNormal) / dot(ray.direction,planeNormal);
+    
+    if(dist < 0 && dist <= small_t) {
+        return false;
+    }
+    
+    vec3 P = ray.Point(dist);
+    //find if the point is in the triangle
+    double triArea = cross(B-A,C-A).magnitude();
+    double alpha = cross(B-P,C-P).magnitude() / triArea;
+    double beta = cross(P-A,C-A).magnitude() / triArea;
+    double phi = cross(B-A,P-A).magnitude() / triArea;
+    
+    bool inTriangle = (phi >= -weight_tolerance && phi <= (1+weight_tolerance) && alpha >= -weight_tolerance && alpha <= (1+weight_tolerance) && beta >= -weight_tolerance && beta <= (1+weight_tolerance));
+    bool weightsInBound = (alpha + beta + phi) >= -weight_tolerance && (alpha + beta + phi) <= 1+weight_tolerance;
+    
+    if(inTriangle && weightsInBound) {
+        return true;
+    }
+    
     return false;
 }
 
@@ -77,6 +126,12 @@ bool Mesh::Intersect_Triangle(const Ray& ray, int tri, double& dist) const
 Box Mesh::Bounding_Box(int part) const
 {
     Box b;
-    TODO;
+    b.Make_Empty();
+    
+    ivec3 curr = triangles.at(part);
+    b.Include_Point(vertices.at(curr[0]));
+    b.Include_Point(vertices.at(curr[1]));
+    b.Include_Point(vertices.at(curr[2]));
+    
     return b;
 }

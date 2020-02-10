@@ -50,6 +50,10 @@ vec3 Sphere::Normal(const vec3& point, int part) const
 Box Sphere::Bounding_Box(int part) const
 {
     Box box;
-    TODO; // calculate bounding box
+    box.Make_Empty();
+    
+    box.Include_Point(vec3(center[0] + radius, center[1] + radius, center[2] + radius));
+    box.Include_Point(vec3(center[0] - radius, center[1] - radius, center[2] - radius));
+    
     return box;
 }
